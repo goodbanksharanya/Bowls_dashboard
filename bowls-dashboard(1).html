@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Best Seller Bowls Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800;900&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #f0f6ff;
+    --surface: #ffffff;
+    --surface2: #e8f2ff;
+    --accent: #3b82f6;
+    --accent2: #0ea5e9;
+    --accent3: #14b8a6;
+    --accent4: #6366f1;
+    --text: #1e3a5f;
+    --muted: #7fa8cc;
+    --border: #dbeafe;
+    --shadow: 0 4px 24px rgba(59,130,246,0.08);
+    --shadow-hover: 0 8px 32px rgba(59,130,246,0.16);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Nunito',sans-serif; min-height:100vh; }
+  body::before {
+    content:''; position:fixed; top:-200px; right:-200px;
+    width:600px; height:600px;
+    background:radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%);
+    pointer-events:none; z-index:0;
+  }
+  body::after {
+    content:''; position:fixed; bottom:-150px; left:-150px;
+    width:500px; height:500px;
+    background:radial-gradient(circle, rgba(14,165,233,0.07) 0%, transparent 70%);
+    pointer-events:none; z-index:0;
+  }
+  .wrap { position:relative; z-index:1; max-width:1160px; margin:0 auto; padding:0 32px 80px; }
+  header {
+    position:relative; z-index:1;
+    max-width:1160px; margin:0 auto;
+    padding:48px 32px 40px;
+    display:flex; justify-content:space-between; align-items:center; gap:24px; flex-wrap:wrap;
+  }
+  .logo-area { display:flex; align-items:center; gap:16px; }
+  .logo-icon {
+    width:56px; height:56px;
+    background:linear-gradient(135deg,#3b82f6,#0ea5e9);
+    border-radius:18px; display:flex; align-items:center; justify-content:center;
+    font-size:26px; box-shadow:0 8px 20px rgba(59,130,246,0.3);
+  }
+  .logo-text h1 { font-size:26px; font-weight:900; color:var(--text); letter-spacing:-0.5px; line-height:1; }
+  .logo-text p { color:var(--muted); font-size:13px; margin-top:4px; font-weight:400; }
+  .header-right { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  #last-updated {
+    background:var(--surface); border:1px solid var(--border);
+    padding:8px 16px; border-radius:24px; font-size:12px; font-weight:700;
+    color:var(--muted); box-shadow:var(--shadow);
+  }
+  .refresh-btn {
+    background:linear-gradient(135deg,#3b82f6,#0ea5e9); color:#fff; border:none;
+    padding:12px 26px; border-radius:28px; font-family:'Nunito',sans-serif;
+    font-size:14px; font-weight:700; cursor:pointer;
+    display:flex; align-items:center; gap:8px;
+    box-shadow:0 6px 20px rgba(59,130,246,0.35); transition:all 0.2s;
+  }
+  .refresh-btn:hover { transform:translateY(-2px); box-shadow:0 10px 28px rgba(59,130,246,0.45); }
+  .refresh-btn:active { transform:translateY(0); }
+  .refresh-btn.loading { opacity:0.7; pointer-events:none; }
+  .spin { display:inline-block; animation:spin 0.8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  #status { text-align:center; padding:100px 20px; display:none; }
+  #status.visible { display:block; }
+  .spinner {
+    width:44px; height:44px; border:3px solid var(--border);
+    border-top-color:var(--accent); border-radius:50%;
+    animation:spin 0.8s linear infinite; margin:0 auto 20px;
+  }
+  .section-label {
+    font-size:11px; font-weight:700; text-transform:uppercase;
+    letter-spacing:2px; color:var(--muted); margin-bottom:16px; margin-top:48px;
+  }
+  .kpi-grid {
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:20px; opacity:0; transform:translateY(20px); transition:all 0.5s ease;
+  }
+  .kpi-grid.visible { opacity:1; transform:translateY(0); }
+  .kpi-card {
+    background:var(--surface); border-radius:24px; padding:28px 28px 24px;
+    box-shadow:var(--shadow); border:1px solid var(--border);
+    transition:all 0.25s; position:relative; overflow:hidden;
+  }
+  .kpi-card:hover { transform:translateY(-4px); box-shadow:var(--shadow-hover); }
+  .kpi-card .bg-circle {
+    position:absolute; top:-20px; right:-20px;
+    width:80px; height:80px; border-radius:50%; opacity:0.08;
+  }
+  .kpi-icon-wrap {
+    width:44px; height:44px; border-radius:14px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:20px; margin-bottom:16px;
+  }
+  .kpi-label { font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; }
+  .kpi-value { font-size:36px; font-weight:900; color:var(--text); line-height:1; letter-spacing:-1px; }
+  .kpi-sub { font-size:12px; color:var(--muted); margin-top:6px; font-weight:400; }
+  .charts-grid {
+    display:grid; grid-template-columns:1fr 1fr; gap:20px;
+    opacity:0; transform:translateY(20px); transition:all 0.5s ease 0.1s;
+  }
+  .charts-grid.visible { opacity:1; transform:translateY(0); }
+  @media(max-width:740px){ .charts-grid { grid-template-columns:1fr; } }
+  .chart-card { background:var(--surface); border-radius:24px; padding:28px; box-shadow:var(--shadow); border:1px solid var(--border); }
+  .chart-card.full { grid-column:1/-1; }
+  .chart-title { font-size:17px; font-weight:800; color:var(--text); margin-bottom:4px; }
+  .chart-subtitle { font-size:12px; color:var(--muted); margin-bottom:24px; font-weight:400; }
+  .chart-wrap { position:relative; height:280px; }
+  .table-card {
+    background:var(--surface); border-radius:24px; padding:32px;
+    box-shadow:var(--shadow); border:1px solid var(--border);
+    opacity:0; transform:translateY(20px); transition:all 0.5s ease 0.2s;
+  }
+  .table-card.visible { opacity:1; transform:translateY(0); }
+  table { width:100%; border-collapse:collapse; }
+  thead tr { border-bottom:2px solid var(--border); }
+  th { text-align:left; padding:12px 16px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:var(--muted); }
+  th:last-child, td:last-child { text-align:right; }
+  tbody tr { border-bottom:1px solid var(--border); transition:background 0.15s; }
+  tbody tr:last-child { border-bottom:none; }
+  tbody tr:hover { background:var(--surface2); }
+  td { padding:16px; font-size:14px; }
+  .rank-badge { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:10px; font-size:14px; font-weight:800; }
+  .rank-1 { background:rgba(59,130,246,0.12); color:#3b82f6; }
+  .rank-2 { background:rgba(14,165,233,0.12); color:#0ea5e9; }
+  .rank-3 { background:rgba(20,184,166,0.12); color:#14b8a6; }
+  .rank-n { background:var(--border); color:var(--muted); font-size:12px; }
+  .product-name { font-weight:700; color:var(--text); font-size:15px; }
+  .bar-cell { display:flex; align-items:center; gap:12px; }
+  .mini-bar-wrap { flex:1; height:8px; background:var(--border); border-radius:99px; min-width:80px; }
+  .mini-bar { height:100%; border-radius:99px; transition:width 0.7s cubic-bezier(.4,0,.2,1); }
+  .total-val { font-size:18px; font-weight:900; color:var(--accent); }
+  footer { text-align:center; padding:32px; color:var(--muted); font-size:12px; position:relative; z-index:1; font-weight:600; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-area">
+    <div class="logo-icon">🥣</div>
+    <div class="logo-text">
+      <h1>Best Seller Bowls</h1>
+      <p>Live dashboard · synced from Google Sheets</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <span id="last-updated">Not yet synced</span>
+    <button class="refresh-btn" onclick="loadData()">
+      <span id="refresh-icon">↻</span> Refresh Data
+    </button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="status">
+    <div class="spinner"></div>
+    <p style="color:var(--muted);font-size:14px;font-weight:600;" id="status-msg">Fetching latest data…</p>
+  </div>
+
+  <div class="section-label" id="label-kpi" style="display:none;">Overview</div>
+  <div class="kpi-grid" id="kpi-grid">
+    <div class="kpi-card">
+      <div class="bg-circle" style="background:#3b82f6;"></div>
+      <div class="kpi-icon-wrap" style="background:rgba(59,130,246,0.1);">📦</div>
+      <div class="kpi-label">Total Products</div>
+      <div class="kpi-value" id="kpi-products">—</div>
+      <div class="kpi-sub">unique bowls tracked</div>
+    </div>
+    <div class="kpi-card">
+      <div class="bg-circle" style="background:#0ea5e9;"></div>
+      <div class="kpi-icon-wrap" style="background:rgba(14,165,233,0.1);">🏆</div>
+      <div class="kpi-label">Top Seller</div>
+      <div class="kpi-value" style="font-size:18px;padding-top:8px;letter-spacing:-0.3px;" id="kpi-top">—</div>
+      <div class="kpi-sub" id="kpi-top-sub"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="bg-circle" style="background:#14b8a6;"></div>
+      <div class="kpi-icon-wrap" style="background:rgba(20,184,166,0.1);">📊</div>
+      <div class="kpi-label">Total Units</div>
+      <div class="kpi-value" id="kpi-total">—</div>
+      <div class="kpi-sub">across all bowls</div>
+    </div>
+    <div class="kpi-card">
+      <div class="bg-circle" style="background:#6366f1;"></div>
+      <div class="kpi-icon-wrap" style="background:rgba(99,102,241,0.1);">📈</div>
+      <div class="kpi-label">Avg per Bowl</div>
+      <div class="kpi-value" id="kpi-avg">—</div>
+      <div class="kpi-sub">units sold on average</div>
+    </div>
+  </div>
+
+  <div class="section-label" id="label-charts" style="display:none;">Charts</div>
+  <div class="charts-grid" id="charts-grid">
+    <div class="chart-card full">
+      <div class="chart-title">Sales Ranking</div>
+      <div class="chart-subtitle">All products sorted by total sold</div>
+      <div class="chart-wrap"><canvas id="barChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Market Share</div>
+      <div class="chart-subtitle">% of total units per bowl</div>
+      <div class="chart-wrap" style="height:260px;"><canvas id="pieChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Top 5 Spotlight</div>
+      <div class="chart-subtitle">Best performing bowls at a glance</div>
+      <div class="chart-wrap" style="height:260px;"><canvas id="topChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="section-label" id="label-table" style="display:none;">Full Leaderboard</div>
+  <div class="table-card" id="table-card">
+    <div style="margin-bottom:24px;">
+      <div class="chart-title">All Bowls Ranked</div>
+      <div class="chart-subtitle">Sorted by total units sold</div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:56px;">Rank</th>
+            <th>Product</th>
+            <th>Sales Volume</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<footer>🥣 Best Seller Bowls · Refresh anytime to sync the latest data from Google Sheets</footer>
+
+<script>
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRCzLQAmTJdOtnFyJIx8Mqx6-7xCkXEd25c6BEOYS77bny0M7nrc9gO12mwyDTnvjD_MyO84hW41n7C/pub?gid=1315643078&single=true&output=csv";
+
+const PALETTE = ["#3b82f6","#0ea5e9","#14b8a6","#6366f1","#38bdf8","#2dd4bf","#818cf8","#60a5fa","#5eead4","#a78bfa","#34d399","#fb7185"];
+
+let barChart, pieChart, topChart;
+
+function parseCSV(text) {
+  const lines = text.trim().split("\n").map(l => l.split(",").map(c => c.replace(/^"|"$/g,'').trim()));
+  if (lines.length < 2) return [];
+  const headers = lines[0].map(h => h.toLowerCase());
+  const ni = Math.max(0, headers.findIndex(h => h.includes("product")||h.includes("name")||h.includes("bowl")||h.includes("item")));
+  const ti = headers.findIndex(h => h.includes("total")||h.includes("sales")||h.includes("qty")||h.includes("quantity")||h.includes("units"));
+  const totalIdx = ti >= 0 ? ti : 1;
+  return lines.slice(1)
+    .filter(r => r[ni])
+    .map(r => ({ name: r[ni], total: parseFloat((r[totalIdx]||"0").replace(/[^0-9.-]/g,''))||0 }))
+    .filter(r => r.name)
+    .sort((a,b) => b.total - a.total);
+}
+
+function setStatus(show, msg="") {
+  document.getElementById("status").classList.toggle("visible", show);
+  document.getElementById("status-msg").textContent = msg;
+}
+
+function reveal(id, delay=60) {
+  setTimeout(() => {
+    const el = document.getElementById(id);
+    if (el) { el.style.display=""; el.classList.add("visible"); }
+  }, delay);
+}
+
+function destroyChart(c) { if(c) { try{c.destroy();}catch(e){} } }
+
+const TT = {
+  backgroundColor:"#1e3a5f", titleColor:"#bfdbfe", bodyColor:"#e0f2fe",
+  borderColor:"#dbeafe", borderWidth:1, padding:12, cornerRadius:12,
+  titleFont:{family:'Nunito',weight:'700'}, bodyFont:{family:'Nunito'}
+};
+
+function renderCharts(data) {
+  const labels = data.map(d => d.name);
+  const values = data.map(d => d.total);
+  const colors = labels.map((_,i) => PALETTE[i%PALETTE.length]);
+
+  destroyChart(barChart);
+  barChart = new Chart(document.getElementById("barChart"), {
+    type:"bar",
+    data:{ labels, datasets:[{ data:values, backgroundColor:colors, borderRadius:12, borderSkipped:false }] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{...TT, callbacks:{label:ctx=>`  ${ctx.parsed.y.toLocaleString()} units`}} },
+      scales:{
+        x:{ ticks:{color:"#7fa8cc",font:{family:'Nunito',size:11,weight:'600'}}, grid:{display:false}, border:{display:false} },
+        y:{ ticks:{color:"#7fa8cc",font:{family:'Nunito',size:11}}, grid:{color:"#dbeafe"}, border:{display:false} }
+      }
+    }
+  });
+
+  const top8 = data.slice(0,8);
+  destroyChart(pieChart);
+  pieChart = new Chart(document.getElementById("pieChart"), {
+    type:"doughnut",
+    data:{ labels:top8.map(d=>d.name), datasets:[{ data:top8.map(d=>d.total), backgroundColor:PALETTE.slice(0,8), borderWidth:3, borderColor:"#ffffff", hoverOffset:6 }] },
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:"68%",
+      plugins:{
+        legend:{position:"bottom",labels:{color:"#7fa8cc",font:{family:'Nunito',size:11,weight:'600'},boxWidth:10,padding:14,usePointStyle:true,pointStyleWidth:10}},
+        tooltip:{...TT, callbacks:{label:ctx=>`  ${ctx.parsed.toLocaleString()} units`}}
+      }
+    }
+  });
+
+  const top5 = data.slice(0,5);
+  destroyChart(topChart);
+  topChart = new Chart(document.getElementById("topChart"), {
+    type:"bar",
+    data:{ labels:top5.map(d=>d.name), datasets:[{ data:top5.map(d=>d.total), backgroundColor:PALETTE.slice(0,5), borderRadius:10, borderSkipped:false }] },
+    options:{
+      indexAxis:"y", responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{...TT, callbacks:{label:ctx=>`  ${ctx.parsed.x.toLocaleString()} units`}} },
+      scales:{
+        x:{ ticks:{color:"#7fa8cc",font:{family:'Nunito',size:11}}, grid:{color:"#dbeafe"}, border:{display:false} },
+        y:{ ticks:{color:"#1e3a5f",font:{family:'Nunito',size:12,weight:'700'}}, grid:{display:false}, border:{display:false} }
+      }
+    }
+  });
+}
+
+function renderTable(data) {
+  const max = data[0]?.total || 1;
+  const medals = ["🥇","🥈","🥉"];
+  document.getElementById("table-body").innerHTML = data.map((row,i) => {
+    const pct = Math.round((row.total/max)*100);
+    const color = PALETTE[i%PALETTE.length];
+    const rankEl = i < 3 ? `<span class="rank-badge rank-${i+1}">${medals[i]}</span>` : `<span class="rank-badge rank-n">#${i+1}</span>`;
+    return `<tr>
+      <td>${rankEl}</td>
+      <td><span class="product-name">${row.name}</span></td>
+      <td><div class="bar-cell"><div class="mini-bar-wrap"><div class="mini-bar" style="width:${pct}%;background:${color};"></div></div><span style="color:var(--muted);font-size:12px;font-weight:700;min-width:36px;">${pct}%</span></div></td>
+      <td><span class="total-val">${row.total.toLocaleString()}</span></td>
+    </tr>`;
+  }).join("");
+}
+
+function renderKPIs(data) {
+  const total = data.reduce((s,d)=>s+d.total,0);
+  document.getElementById("kpi-products").textContent = data.length;
+  document.getElementById("kpi-top").textContent = data[0]?.name||"—";
+  document.getElementById("kpi-top-sub").textContent = data[0]?`${data[0].total.toLocaleString()} units sold`:"";
+  document.getElementById("kpi-total").textContent = total.toLocaleString();
+  document.getElementById("kpi-avg").textContent = data.length ? Math.round(total/data.length).toLocaleString() : "—";
+}
+
+async function loadData() {
+  const btn = document.querySelector(".refresh-btn");
+  const icon = document.getElementById("refresh-icon");
+  btn.classList.add("loading"); icon.classList.add("spin");
+  setStatus(true,"Fetching latest data from Google Sheets…");
+  ["kpi-grid","charts-grid","table-card"].forEach(id=>document.getElementById(id).classList.remove("visible"));
+  ["label-kpi","label-charts","label-table"].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display="none";});
+
+  try {
+    const res = await fetch(CSV_URL+"&t="+Date.now());
+    if (!res.ok) throw new Error("Could not reach Google Sheets");
+    const text = await res.text();
+    const data = parseCSV(text);
+    if (!data.length) throw new Error("No data found — check your columns are 'Product Name' and 'Total'");
+
+    setStatus(false);
+    renderKPIs(data);
+    renderCharts(data);
+    renderTable(data);
+
+    ["label-kpi","label-charts","label-table"].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display="block";});
+    reveal("kpi-grid"); reveal("charts-grid",120); reveal("table-card",200);
+
+    const now = new Date();
+    document.getElementById("last-updated").textContent = `Synced ${now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
+  } catch(err) {
+    setStatus(true,"⚠️ "+err.message);
+  }
+  btn.classList.remove("loading"); icon.classList.remove("spin");
+}
+
+loadData();
+</script>
+</body>
+</html>
